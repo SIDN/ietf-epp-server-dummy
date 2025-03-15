@@ -121,13 +121,6 @@ def handle_client(client_socket, address):
                 print(f"Send EPP message: {response}")
                 response_message = response.encode('utf-8')
                 client_socket.send(len(response_message).to_bytes(4, 'big') + response_message)
-                # with open('xml/response-1000.xml', 'r') as file:
-                #     response = file.read()
-                #     print(f"Send EPP message: {response}")
-
-                #     response_message = response.encode('utf-8')
-                #     client_socket.send(len(response_message).to_bytes(4, 'big') + response_message)
-
                 
             except ET.ParseError as e:
                 print(f"Error parsing EPP XML message: {e}")
