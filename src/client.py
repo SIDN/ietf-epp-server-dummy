@@ -19,7 +19,7 @@ def send_epp_request(sock, xml_request):
 
 def main():
     host = 'localhost'
-    port = 700
+    port = 7001
     
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client_socket.connect((host, port))
@@ -36,22 +36,27 @@ def main():
     
     # Example EPP Login Request
     epp_login = """
-    <?xml version="1.0" encoding="UTF-8"?>
+    <?xml version="1.0" standalone="no"?>
     <epp xmlns="urn:ietf:params:xml:ns:epp-1.0">
-        <command>
-            <login>
-                <clID>example-client</clID>
-                <pw>12345678</pw>
-                <options>
-                    <version>1.0</version>
-                    <lang>en</lang>
-                </options>
-                <svcs>
-                    <objURI>urn:ietf:params:xml:domain-1.0</objURI>
-                </svcs>
-            </login>
-            <clTRID>ABC-12345</clTRID>
-        </command>
+      <command>
+        <login>
+          <clID>foo</clID>
+          <pw>12345678</pw>
+          <options>
+        <version>1.0</version>
+        <lang>en</lang>
+          </options>
+          <svcs>
+        <objURI>urn:ietf:params:xml:ns:domain-1.0</objURI>
+        <objURI>urn:ietf:params:xml:ns:host-1.0</objURI>
+        <objURI>urn:ietf:params:xml:ns:contact-1.0</objURI>
+        <svcExtension>
+          <extURI>urn:ietf:params:xml:ns:secDNS-1.1</extURI>
+        </svcExtension>
+          </svcs>
+        </login>
+        <clTRID>248141e9-3303-4d9d-b9d4-f6ede2548908</clTRID>
+      </command>
     </epp>
     """
     
@@ -59,10 +64,47 @@ def main():
     
     # Receive response
     response = receive_message(client_socket)
+    process_response(response)
+    
+    
+    epp_domain_create = """
+      <?xml version="1.0" standalone="no"?>
+    <epp xmlns="urn:ietf:params:xml:ns:epp-1.0">
+    <command>
+        <create>
+        <domain:create xmlns:domain="urn:ietf:params:xml:ns:domain-1.0">
+            <domain:name>example.com</domain:name>
+            <domain:period unit="y">1</domain:period>
+            <domain:ns>
+            <domain:hostObj>ns1.example.com</domain:hostObj>
+            <domain:hostObj>ns2.example.net</domain:hostObj>
+            </domain:ns>
+            <domain:registrant>example-id</domain:registrant>
+            <domain:contact type="admin">example-id</domain:contact>
+            <domain:contact type="billing">example-id</domain:contact>
+            <domain:contact type="tech">example-id</domain:contact>
+            <domain:authInfo>
+            <domain:pw>password</domain:pw>
+            </domain:authInfo>
+        </domain:create>
+        </create>
+        <clTRID>TEST-REQUEST-ID</clTRID>
+    </command>
+    </epp>
+    """
+    
+    send_epp_request(client_socket, epp_domain_create)
+    response = receive_message(client_socket)
+    process_response(response)
+    
+    client_socket.close()
+    print("Connection closed.")
+
+def process_response(response):
     if response:
         print("Received EPP Response:")
         print(response)
-        
+    
         # Parse XML Response
         try:
             root = ET.fromstring(response)
@@ -71,9 +113,7 @@ def main():
             print("Error parsing EPP XML response")
     else:
         print("No response received.")
-    
-    client_socket.close()
-    print("Connection closed.")
-
+        
+        
 if __name__ == "__main__":
     main()

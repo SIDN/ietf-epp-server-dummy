@@ -2,9 +2,10 @@ import socket
 import threading
 import xml.etree.ElementTree as ET
 import xmlschema
-from epp_commands import exec_epp
+from epp_commands import exec_epp, error
 import os
 from pprint import pprint
+from model import parseString
 
 script_dir = os.path.dirname(os.path.realpath(__file__))
 
@@ -26,6 +27,9 @@ def handle_client(client_socket, address):
 
     # Construct the full file path relative to the script's directory
     file_path = os.path.join(script_dir, 'xsd/epp.xsd')
+    print(f'load main XSD from: {file_path}')
+    print(f'Use XSD locations: {locations}')
+    
     with open(file_path, 'r') as xsd_f:
         xsd_schema = xmlschema.XMLSchema(xsd_f, locations=locations)
     
@@ -60,13 +64,7 @@ def handle_client(client_socket, address):
     client_socket.send(len(message).to_bytes(4, 'big') + message)
     
     while True:
-        print('wait-for-data')
         try:
-            # data = client_socket.recv(4)
-            # if not data:
-            #     print('no-data')
-            #     break
-            
             # Remove the 4-byte length prefix
             # Read the first 4 bytes (length prefix)
             length_prefix = client_socket.recv(4)
@@ -84,40 +82,28 @@ def handle_client(client_socket, address):
                 data += packet
 
             epp_message = data.decode('utf-8')
-            #epp_message = data[4:].decode('utf-8')
             print(f"Received EPP message: {epp_message}")
             
             # Parse XML
             try:
                 xml_request = epp_message.strip();
-                root = ET.fromstring(xml_request)
-                print(f"Parsed XML Root: {root.tag}")
+               
+                if not validate(xsd_schema, xml_request):
+                    response = error(2001)
+                else:
+                    print(f"XML is valid according to {xsd_schema}")
+                    root = None
+                    try:
+                        root = ET.fromstring(xml_request)
+                        objs = xsd_schema.to_objects(xml_request,use_namespaces=True)
+                        obj_dict = xsd_schema.to_dict(xml_request)
+                        
+                        eppType = parseString(xml_request)
+                        response = exec_epp(eppType)
+                    except Exception as ex:
+                        print(ex)
+                        response = error(2001)
 
-                xsd_schema.validate(xml_request)
-                print(f"{root} is valid according to {xsd_schema}")
-
-                # Use the generated class method to parse the XML
-                #loginObj = loginType.factory(root)
-                #loginObj = loginType.factory()
-                #loginObj.build(root)
-                objs = xsd_schema.to_objects(xml_request,use_namespaces=True)
-                obj_dict = xsd_schema.to_dict(xml_request)
-                
-                response = None
-                #namespace = {'epp': 'urn:ietf:params:xml:ns:epp-1.0', 'domain': 'urn:ietf:params:xml:ns:domain-1.0'}
-                #cmd = root.find(".//epp:login", namespaces=namespace)
-                #if objs._children[0][0].local_name == 'login':
-                #if cmd is not None:
-                response = exec_epp(root)
-                    
-                
-                pprint(obj_dict)
-
-                #login_user = loginObj.get_clID().text
-                #print(f"got login for user: {login_user}")
-                
-                # Example response processing
-                
                 print(f"Send EPP message: {response}")
                 response_message = response.encode('utf-8')
                 client_socket.send(len(response_message).to_bytes(4, 'big') + response_message)
@@ -130,8 +116,20 @@ def handle_client(client_socket, address):
     print(f"Connection closed from {address}")
     client_socket.close()
 
+def validate(xsd_schema, xml):
+    try:
+        xsd_schema.validate(xml)
+        # if not valid:
+        #     print("XML is NOT valid!")
+        #     for error in xsd_schema.error_log:
+        #         print(f"Line {error.line}: {error.message}")
+                
+        return True
+    except Exception as ex:
+        print(f'Validation error: {ex}')
+        return False
 
-def start_server(host='0.0.0.0', port=700):
+def start_server(host='0.0.0.0', port=7001):
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server.bind((host, port))

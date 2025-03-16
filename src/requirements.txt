@@ -1,0 +1,17 @@
+beautifulsoup4==4.13.3
+certifi==2025.1.31
+charset-normalizer==3.4.1
+click==8.1.8
+elementpath==4.8.0
+generateDS==2.44.3
+idna==3.10
+Jinja2==3.1.6
+lxml==5.3.1
+MarkupSafe==3.0.2
+pyepp==0.1.4
+requests==2.32.3
+six==1.17.0
+soupsieve==2.6
+typing_extensions==4.12.2
+urllib3==2.3.0
+xmlschema==3.4.3
